@@ -1,12 +1,14 @@
 import os
 from google import genai
 import logging
+from PIL import ImageGrab  # Adds screen capturing ability
+
 from audio.tts import speak
 from audio.stt import listen_to_user
 
 # Import the tools you built
 from tools.web_tools import open_dsa_environment, play_youtube_music
-from tools.system_tools import open_project_in_vscode
+from tools.system_tools import open_project_in_vscode, control_media
 
 logger = logging.getLogger(__name__)
 
@@ -28,23 +30,24 @@ def start_jarvis_brain():
     jarvis_tools = [
         open_dsa_environment,
         open_project_in_vscode,
-        play_youtube_music
+        play_youtube_music,
+        control_media
     ]
     
     # 4. System Instruction: Give JARVIS a personality and instructions
     jarvis_persona = """
     You are JARVIS, a highly capable, concise, and helpful AI assistant.
     You control the user's Lenovo LOQ laptop using the tools provided to you.
-    When the user asks you to do something, determine which tool is appropriate, execute it, 
-    and then give a very brief confirmation message (1-2 sentences max). 
-    Do not explain how you did it, just confirm it is done.
+    When the user asks you to do something, determine which tool is appropriate and execute it.
+    CRITICAL INSTRUCTION: You MUST always generate a brief, 1-2 sentence text response 
+    confirming what you just did AFTER using a tool. Never return an empty response.
     """
     
     print("Initializing JARVIS Brain (Gemini 2.0 Flash)...")
     
     # 5. Start the chat session with Automatic Function Calling enabled
     chat = client.chats.create(
-        model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         config=dict(
             tools=jarvis_tools,
             system_instruction=jarvis_persona,
@@ -80,7 +83,22 @@ def start_jarvis_brain():
         # ----------------------
             
         try:
-            response = chat.send_message(user_input)
+            # --- THE VISUAL BRAIN CORTEX ---
+            # If your spoken command contains visual keywords, snap a screenshot
+            if "look" in user_input.lower() or "see" in user_input.lower() or "screen" in user_input.lower() or "capture" in user_input.lower():
+                print("[JARVIS is capturing your screen...]")
+                
+                # Take a full-screen screenshot
+                screenshot = ImageGrab.grab()
+                
+                # Gemini 1.5 Flash is natively multimodal. 
+                # We can just pass it a list containing both your text AND the image!
+                response = chat.send_message([user_input, screenshot])
+            else:
+                # Standard text-only routing for normal commands
+                response = chat.send_message(user_input)
+            # --------------------------------
+            
             reply_text = response.text
             print(f"\nJARVIS: {reply_text}\n")
             speak(reply_text)

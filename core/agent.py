@@ -5,6 +5,7 @@ from PIL import ImageGrab  # Adds screen capturing ability
 
 from audio.tts import speak
 from audio.stt import listen_to_user
+from audio.wake_word import wait_for_wake_word
 
 # Import the tools you built
 from tools.web_tools import open_dsa_environment, play_youtube_music
@@ -59,49 +60,61 @@ def start_jarvis_brain():
     print("-" * 50)
     
     # 6. The Agentic Loop
+    print("\nJARVIS Framework fully loaded. Entering main system routine.")
+    
     while True:
-        # REPLACE the old input() line with our microphone listener!
-        user_input = listen_to_user()
+        # ====================================================================
+        # STAGE 1: PASSIVE SLEEP STATE
+        # ====================================================================
+        # System halts right here, pulling 0% network data, waiting for the wake word
+        wait_for_wake_word()
         
-        # If the mic heard nothing (or timed out), loop back and keep listening
-        if not user_input:
-            continue
+        print("\n[JARVIS: Awakened. Opening continuous session...]")
+        speak("Online and ready, boss.")
+        
+        # ====================================================================
+        # STAGE 2: ACTIVE CONTINUOUS CONVERSATION SESSION
+        # ====================================================================
+        # Once awake, enter a dedicated loop that keeps listening back-to-back
+        while True:
+            user_input = listen_to_user()
             
-        print(f"You (Spoken): {user_input}")
-        
-        # --- NEW EXIT LOGIC ---
-        # Convert input to lowercase once
-        spoken_lower = user_input.lower()
-        
-        # If ANY of these phrases are found anywhere in your sentence, shut down.
-        exit_phrases = ['exit', 'quit', 'power down', 'shut down', 'stop listening']
-        
-        if any(phrase in spoken_lower for phrase in exit_phrases):
-            print("JARVIS: Powering down. Goodbye.")
-            speak("Powering down. Goodbye.")
-            break
-        # ----------------------
-            
-        try:
-            # --- THE VISUAL BRAIN CORTEX ---
-            # If your spoken command contains visual keywords, snap a screenshot
-            if "look" in user_input.lower() or "see" in user_input.lower() or "screen" in user_input.lower() or "capture" in user_input.lower():
-                print("[JARVIS is capturing your screen...]")
+            # If the mic caught complete silence, loop back and listen again
+            if not user_input:
+                continue
                 
-                # Take a full-screen screenshot
-                screenshot = ImageGrab.grab()
+            print(f"You (Spoken): {user_input}")
+            spoken_lower = user_input.lower()
+            
+            # --- SPLIT TERMINATION LOGIC ---
+            # 1. Check for HARD SHUTDOWN (Kills the entire program)
+            hard_shutdown_phrases = ['exit', 'quit', 'power off', 'full shutdown', 'completely shut down']
+            if any(phrase in spoken_lower for phrase in hard_shutdown_phrases):
+                print("JARVIS: Completely shutting down core systems. Goodbye.")
+                speak("Completely shutting down core systems. Goodbye.")
+                import sys
+                sys.exit(0) # Instantly kills the entire Python script cleanly
                 
-                # Gemini 1.5 Flash is natively multimodal. 
-                # We can just pass it a list containing both your text AND the image!
-                response = chat.send_message([user_input, screenshot])
-            else:
-                # Standard text-only routing for normal commands
-                response = chat.send_message(user_input)
-            # --------------------------------
-            
-            reply_text = response.text
-            print(f"\nJARVIS: {reply_text}\n")
-            speak(reply_text)
-            
-        except Exception as e:
-            print(f"\nJARVIS: I'm sorry, I encountered an error: {e}\n")
+            # 2. Check for SOFT STANDBY (Goes back to waiting for "Hey Jarvis")
+            standby_phrases = ['power down', 'go to sleep', 'stop listening', 'standby']
+            if any(phrase in spoken_lower for phrase in standby_phrases):
+                print("JARVIS: Entering standby mode. Standing by...")
+                speak("Entering standby mode.")
+                break # Breaks inner loop, falls back to wake word listening
+            # -------------------------------
+                
+            try:
+                # Visual Brain Context routing
+                if "look" in spoken_lower or "see" in spoken_lower or "screen" in spoken_lower:
+                    print("[JARVIS is capturing your screen...]")
+                    screenshot = ImageGrab.grab()
+                    response = chat.send_message([user_input, screenshot])
+                else:
+                    response = chat.send_message(user_input)
+                
+                reply_text = response.text
+                print(f"\nJARVIS: {reply_text}\n")
+                speak(reply_text)
+                
+            except Exception as e:
+                print(f"\nJARVIS: I'm sorry, I encountered an error during session processing: {e}\n")
